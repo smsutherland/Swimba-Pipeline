@@ -96,7 +96,7 @@ def main():
 
 set -e"""
             """
-cd ${sim_dirs[$SLURM_ARRAY_TASK_ID]}
+cd ${SLURM_ARRAY_TASK_ID}
 ./job.sh
 """
         )
