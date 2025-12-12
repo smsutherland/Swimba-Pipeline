@@ -1,0 +1,29 @@
+ParamName,Fiducial,AbsMaxDiff,LogFlag,Meaning
+Cosmology:Omega_cdm,0.251,0.2,0,fraction of dark matter
+ICs:sigma8,0.8,0.2,0,sigma8
+SIMBAFeedback:FIRE_eta_normalization,7.0,4,1,SN mass - ASN1
+SIMBAAGN:wind_momentum_flux,20.0,4,1,AGN mass - AAGN1
+SIMBAFeedback:FIRE_velocity_normalization,2.3,2,1,SN speed - ASN2
+SIMBAAGN:jet_velocity,7000,2,1,AGN speed - AAGN2
+Cosmology:Omega_b,0.049,0.02,0,fraction of baryons
+Cosmology:h,0.6711,0.2,0,Hubble parameter
+ICs:n_s,0.9624,0.2,0,spectral index
+SIMBAStarFormation:threshold_number_density_H_p_cm3,0.13,10,1,gas density threshold for star formation
+SIMBAStarFormation:KS_normalisation,0.0001515,2,1,star formation normalization
+SIMBAFeedback:cold_wind_temperature_K,1e4,10,1,temperature of cold galactic winds
+SIMBAFeedback:wind_decouple_time_factor,0.02,10,1,time galactic winds are decoupled. in terms of universe age
+Gravity:softening,0.002941,2,1,softening length
+SIMBAAGN:subgrid_seed_mass_Msun,1.5e4,10,1,seed BH mass
+SIMBAAGN:f_accretion,0.1,4,1,normalization for BH growth
+SIMBAAGN:radiative_efficiency,0.1,4,1,BH radiative efficiency
+SIMBAAGN:max_eddington_fraction,3,4,1,Eddington rate multiplier for the BH accretion rate limiter
+BlackHoles:resolution_eta,2,1.26,1,BH kernel resolution
+BlackHoles:h_max,0.004,4,1,max smoothing length of BH particles
+SIMBAEntropyFloor:Jeans_density_threshold_H_p_cm3,0.1,4,1,null
+SIMBAFeedback:FIRE_velocity_slope,0.12,0.5,0,power-law dependence of wind velocity with Vcirc
+SIMBAFeedback:Pandya_offset,0,0.3,0,fraction of hot winds. offset from Pandya+22
+SIMBAFeedback:AGB_ejecta_velocity_km_p_s,10,4,1,AGB wind velocity
+FOF:black_hole_seed_host_mass_Msun,3.16e9,10,1,stellar mass threshold for seeding
+SIMBAAGN:jet_heating_velocity_threshold,2000,4,1,velocity above which jets are heated to Tvir
+SIMBAAGN:environment_temperature_cut,1e5,10,1,threshold temperature for bondi vs torque accretion
+SIMBAAGN:jet_mass_min_Msun,3.1e7,10,1,threshold BH mass for jet feedback
