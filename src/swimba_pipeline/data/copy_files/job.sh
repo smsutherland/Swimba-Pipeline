@@ -151,5 +151,5 @@ for i in $(seq 90 -1 0); do
 done
 
 # clean up everything we don't need anymore
-rm -r restart/
-rm snaps/subs/subsnap*.hdf5
+rm -rf restart/
+rm -f snaps/subs/subsnap*.hdf5
