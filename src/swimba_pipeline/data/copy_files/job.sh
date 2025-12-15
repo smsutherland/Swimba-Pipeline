@@ -124,31 +124,33 @@ if [ ! -e snaps/snapshot_0090.hdf5 ]; then
     mv snapshot_*.hdf5 snaps/
 fi
 
-# SUBFIND
-arepo_mods
-mkdir -p ./snaps/subs/
-source /mnt/home/ssutherland/.virtualenvs/sci/bin/activate
-/mnt/home/ssutherland/codes/CAMELS-SWIFT/arepo_subfind/generate_params.py ./params.yml /mnt/home/ssutherland/codes/CAMELS-SWIFT/arepo_subfind/arepo_subfind_param_rusty.txt ./snaps/subs/arepo_subfind_param.txt
+if [ ! -e snaps/subs/fof_subhalo_tab_000.hdf5 ]; then
+    # SUBFIND
+    arepo_mods
+    mkdir -p ./snaps/subs/
+    source /mnt/home/ssutherland/.virtualenvs/sci/bin/activate
+    /mnt/home/ssutherland/codes/CAMELS-SWIFT/arepo_subfind/generate_params.py ./params.yml /mnt/home/ssutherland/codes/CAMELS-SWIFT/arepo_subfind/arepo_subfind_param_rusty.txt ./snaps/subs/arepo_subfind_param.txt
 
-# Iterate backward through the snapshots
-# This is done so that, during testing, snapshot 90 gets done first and we can look at it without having to wait
-for i in $(seq 90 -1 0); do
-    SOURCE_SNAP=$(printf "snapshot_%04d.hdf5" $i)
-    DEST_SNAP=$(printf "subsnap_%03d.hdf5" $i)
-    DEST_FOF=$(printf "fof_subhalo_tab_%03d.hdf5" $i)
+    # Iterate backward through the snapshots
+    # This is done so that, during testing, snapshot 90 gets done first and we can look at it without having to wait
+    for i in $(seq 90 -1 0); do
+        SOURCE_SNAP=$(printf "snapshot_%04d.hdf5" $i)
+        DEST_SNAP=$(printf "subsnap_%03d.hdf5" $i)
+        DEST_FOF=$(printf "fof_subhalo_tab_%03d.hdf5" $i)
 
-    # Does the subfind catalog already exist?
-    if [ -e snaps/subs/$DEST_FOF ]; then
-        # Skip it!
-        continue
-    fi
+        # Does the subfind catalog already exist?
+        if [ -e snaps/subs/$DEST_FOF ]; then
+            # Skip it!
+            continue
+        fi
 
-    /mnt/home/ssutherland/codes/CAMELS-SWIFT/arepo_subfind/convert_snap_for_subfind.py "snaps/$SOURCE_SNAP" ./snaps/subs/ -v --output-filename
+        /mnt/home/ssutherland/codes/CAMELS-SWIFT/arepo_subfind/convert_snap_for_subfind.py "snaps/$SOURCE_SNAP" ./snaps/subs/ -v --output-filename
 
-    pushd ./snaps/subs
-    srun --ntasks=${SLURM_NTASKS} --cpus-per-task=1 --cpu_bind=cores --hint=compute_bound --kill-on-bad-exit=1 /mnt/home/ssutherland/codes/Arepo_subfind_v2/Arepo ./arepo_subfind_param.txt 3 $i 2>&1 | tee "subfind_${i}.log"
-    popd
-done
+        pushd ./snaps/subs
+        srun --ntasks=${SLURM_NTASKS} --cpus-per-task=1 --cpu_bind=cores --hint=compute_bound --kill-on-bad-exit=1 "/mnt/home/ssutherland/codes/Arepo_subfind_v2/Arepo_$(get_host)" ./arepo_subfind_param.txt 3 $i 2>&1 | tee "subfind_${i}.log"
+        popd
+    done
+fi
 
 # clean up everything we don't need anymore
 rm -rf restart/
