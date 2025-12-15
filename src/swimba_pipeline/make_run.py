@@ -215,9 +215,6 @@ WDM_PartMass_in_kev  10.0
 def copy_files(target: Path):
     copy_files: Path = Path(__file__).parent / "data/copy_files"
     shutil.copytree(copy_files, target, dirs_exist_ok=True)
-    link_files: Path = Path(__file__).parent / "data/link_files"
-    for file in link_files.iterdir():
-        (target / file.name).symlink_to(file)
 
 
 def replace_shebang(file: TextIOBase):
