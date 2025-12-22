@@ -2,11 +2,8 @@ from scipy.stats.qmc import Sobol
 from multiprocessing import Pool
 from pathlib import Path
 
-import numpy as np
 import yaml
 from astropy.table import Table
-from swiftemulator import ModelSpecification
-from swiftemulator.design import latin
 
 from .make_run import Params, make_run
 
@@ -140,6 +137,7 @@ def loop(row):
         o_b = cosmo.get("Omega_b") or base_parameters["Cosmology"]["Omega_b"]
         cosmo["Omega_lambda"] = 1 - o_cdm - o_b
 
+    parameters["MetaData"] = {"run_name": row["sim_name"]}
     make_run(parameters, target=target)
     return target
 

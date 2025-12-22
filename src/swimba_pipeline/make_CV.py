@@ -2,7 +2,7 @@ from pathlib import Path
 
 from astropy.table import Table
 
-from .make_run import make_run
+from .make_run import make_run, Params
 
 SEEDS = [
     1,
@@ -37,9 +37,9 @@ NUM_RUNS = len(SEEDS)
 
 
 def main():
-    if Path("./CosmoAstroSeed_SWIMBA_L25n256_1P.txt").exists():
+    if Path("./CosmoAstroSeed_SWIMBA_L25n256_CV.txt").exists():
         cosmoastroseed = Table.read(
-            "./CosmoAstroSeed_SWIMBA_L25n256_1P.txt", format="ascii.basic"
+            "./CosmoAstroSeed_SWIMBA_L25n256_CV.txt", format="ascii.basic"
         )
     else:
         cosmoastroseed = Table(
@@ -66,7 +66,8 @@ def main():
             cosmoastroseed.loc[str(path.name)] = row
         except KeyError:
             cosmoastroseed.add_row(row)
-        changes = {"ICs": {"seed": seed}}
+        changes: Params = {"ICs": {"seed": seed}}
+        changes["MetaData"] = {"run_name": "CV_" + str(i)}
         make_run(changes, path)
 
     cosmoastroseed.sort("Name")
@@ -78,7 +79,7 @@ def main():
         f.write(
             f"""#!/bin/bash
 #########################################################
-#SBATCH --job-name=SWIMBA_CAMELS_1P
+#SBATCH --job-name=SWIMBA_CAMELS_CV
 #SBATCH --partition=cmbas
 #SBATCH --constraint=cpu
 #SBATCH --mail-user=sutherland.sagan@gmail.com
