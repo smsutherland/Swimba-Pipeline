@@ -95,9 +95,9 @@ def main():
 #SBATCH --array=0-{NUM_RUNS-1}
 #########################################################
 
-set -e"""
-            """
-cd ${SLURM_ARRAY_TASK_ID}
+set -e
+
+cd CV_${{SLURM_ARRAY_TASK_ID}}
 ./job.sh
 """
         )
