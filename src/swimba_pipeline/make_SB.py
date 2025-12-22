@@ -55,6 +55,20 @@ cd SB28_${SLURM_ARRAY_TASK_ID}
         )
 
 
+def mk_log(lower, upper):
+    def inner(x):
+        return upper**x * lower ** (1 - x)
+
+    return inner
+
+
+def mk_linear(lower, upper):
+    def inner(x):
+        return upper * x + lower * (1 - x)
+
+    return inner
+
+
 def make_parameters(parameters):
     parameter_limits = []
     parameter_transforms = {}
@@ -64,15 +78,11 @@ def make_parameters(parameters):
         if param["LogFlag"]:
             lower = fid / diff
             upper = fid * diff
-            parameter_transforms[param["ParamName"]] = lambda x: upper**x * lower ** (
-                1 - x
-            )
+            parameter_transforms[param["ParamName"]] = mk_log(lower, upper)
         else:
             lower = fid - diff
             upper = fid + diff
-            parameter_transforms[param["ParamName"]] = (
-                lambda x: x * upper + (1 - x) * lower
-            )
+            parameter_transforms[param["ParamName"]] = mk_linear(lower, upper)
         parameter_limits.append([lower, upper])
 
     sobol = Sobol(len(parameters), scramble=True, seed=SOBOL_SEED)
@@ -92,7 +102,9 @@ def make_parameters(parameters):
         cosmoastroseed.add_row(row)
         seed += 1
 
-    cosmoastroseed.write("./CosmoAstroSeed_SWIMBA_L25n256_SB28.txt", format="ascii.basic")
+    cosmoastroseed.write(
+        "./CosmoAstroSeed_SWIMBA_L25n256_SB28.txt", format="ascii.basic"
+    )
     return cosmoastroseed
 
 
