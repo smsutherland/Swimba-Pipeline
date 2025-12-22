@@ -80,27 +80,25 @@ if [ ! -e ic.hdf5 ]; then
 fi
 
 # SWIFT
-swift_mods
-
-# Build swift if it doesn't exist, or if it was built for a different kind of node.
-if [ ! -e swiftsim/swift_mpi ] || [ "x$(get_host)" != "x$(cat host 2>/dev/null)" ]; then
-    pushd swiftsim
-    GRACKLE=/mnt/home/ssutherland/codes/libs/grackle
-    PARMETIS=/mnt/home/ssutherland/codes/libs/parmetis/
-    ONETBB=/mnt/home/ssutherland/codes/libs/oneTBB/
-    ./autogen.sh
-    CC=mpicc ./configure --with-subgrid=SAGAN --with-hydro=sphenix --with-hdf5=`which h5cc` --with-grackle=${GRACKLE} --with-parmetis=${PARMETIS} --with-tbbmalloc=${ONETBB} --with-gcc-arch=native
-    make -j
-
-    get_host > host
-
-    popd
-fi
-
-
 # Has the simulation already run?
 if [ ! -e snaps/snapshot_0090.hdf5 ]; then
     # It hasn't! Let's run it!
+    swift_mods
+
+    # Build swift if it doesn't exist, or if it was built for a different kind of node.
+    if [ ! -e swiftsim/swift_mpi ] || [ "x$(get_host)" != "x$(cat host 2>/dev/null)" ]; then
+        pushd swiftsim
+        GRACKLE=/mnt/home/ssutherland/codes/libs/grackle
+        PARMETIS=/mnt/home/ssutherland/codes/libs/parmetis/
+        ONETBB=/mnt/home/ssutherland/codes/libs/oneTBB/
+        ./autogen.sh
+        CC=mpicc ./configure --with-subgrid=SAGAN --with-hydro=sphenix --with-hdf5=`which h5cc` --with-grackle=${GRACKLE} --with-parmetis=${PARMETIS} --with-tbbmalloc=${ONETBB} --with-gcc-arch=native
+        make -j
+
+        get_host > host
+
+        popd
+    fi
 
     if [ -e restart/swift_000000.rst ]; then
         # If a restart file exists, we probably want to be using it
@@ -124,6 +122,7 @@ if [ ! -e snaps/snapshot_0090.hdf5 ]; then
     mv snapshot_*.hdf5 snaps/
 fi
 
+# Has subfind completed?
 if [ ! -e snaps/subs/fof_subhalo_tab_000.hdf5 ]; then
     # SUBFIND
     arepo_mods
