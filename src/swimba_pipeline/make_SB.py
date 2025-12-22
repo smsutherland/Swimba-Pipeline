@@ -92,7 +92,7 @@ def make_parameters(parameters):
         cosmoastroseed.add_row(row)
         seed += 1
 
-    cosmoastroseed.write("./CosmoAstroSeed_SWIMBA_L25n256_LH.txt", format="ascii.basic")
+    cosmoastroseed.write("./CosmoAstroSeed_SWIMBA_L25n256_SB28.txt", format="ascii.basic")
     return cosmoastroseed
 
 
