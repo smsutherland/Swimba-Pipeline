@@ -14,7 +14,7 @@ LOG_NUM_RUNS = 10  # 2**10 = 1024
 
 def main():
     parameters_fname = Path(__file__).parent / "./data/1P_params.txt"
-    parameters = Table.read(parameters_fname, format="ascii.basic", delimiter=",")[:6]
+    parameters = Table.read(parameters_fname, format="ascii.basic", delimiter=",")
     if not Path("./CosmoAstroSeed_SWIMBA_L25n256_SB28.txt").exists():
         cosmoastroseed = make_parameters(parameters)
     else:
