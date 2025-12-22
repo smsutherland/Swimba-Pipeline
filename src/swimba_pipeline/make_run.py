@@ -184,7 +184,7 @@ GlassFile        ./2lpt/GLASS/dummy_glass_CDM_B_64_64.dat
 GlassTileFac     4
 Omega            {Omega_b + Omega_cdm}
 OmegaLambda      {1 - Omega_b - Omega_cdm}
-OmegaBaryon      0.049
+OmegaBaryon      {Omega_b}
 OmegaDM_2ndSpecies  0.0
 HubbleParam      0.6711
 Redshift         127
