@@ -141,6 +141,7 @@ def clone_swift(target: Path):
             str(source),
             str(target / "swiftsim"),
             "--branch=swimba-camels",
+            "--quiet",
         ]
     )
     (target / "swift_mpi").symlink_to(Path("./swiftsim/swift_mpi"))
