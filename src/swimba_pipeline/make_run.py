@@ -186,7 +186,7 @@ Omega            {Omega_b + Omega_cdm}
 OmegaLambda      {1 - Omega_b - Omega_cdm}
 OmegaBaryon      {Omega_b}
 OmegaDM_2ndSpecies  0.0
-HubbleParam      0.6711
+HubbleParam      {h}
 Redshift         127
 Sigma8           {sigma_8}
 SphereMode       0
