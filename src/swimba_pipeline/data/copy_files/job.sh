@@ -93,6 +93,7 @@ if [ ! -e snaps/snapshot_0090.hdf5 ]; then
         ONETBB=/mnt/home/ssutherland/codes/libs/oneTBB/
         ./autogen.sh
         CC=mpicc ./configure --with-subgrid=SAGAN --with-hydro=sphenix --with-hdf5=`which h5cc` --with-grackle=${GRACKLE} --with-parmetis=${PARMETIS} --with-tbbmalloc=${ONETBB} --with-gcc-arch=native
+        make clean
         make -j
 
         get_host > host
