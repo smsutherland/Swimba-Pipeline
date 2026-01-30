@@ -14,7 +14,7 @@ Default:
   MetalMassFractions_Gas:                  FMantissa9 # Fractions of the particles' masses that are in metals : [ - ] 
   Temperatures_Gas:                        FMantissa9 # Temperatures of the gas particles : U_T  [ K ]
   SpeciesFractions_Gas:                    FMantissa9 # Fractions of neutral, ionized and molecular hydrogen: [nHI/nH, nHII/nH, nH2/nH], assuming equilibrium tables. If the particl... : [ - ] 
-  ElectronNumberDensities_Gas:             FMantissa9 # Electron number densities in the physical frame computed based on the cooling tables. This is 0 for star-forming particles. : U_L^-3  [ cm^-3 ]
+  ElectronNumberDensities_Gas:             DMantissa9 # Electron number densities in the physical frame computed based on the cooling tables. This is 0 for star-forming particles. : U_L^-3  [ cm^-3 ]
   StarFormationRates_Gas:                  FMantissa9 # If positive, star formation rates of the particles. If negative, stores the last time/scale-factor at which the gas particle... : U_M U_t^-1  [ g s^-1 ]
   LastAGNFeedbackScaleFactors_Gas:         on         # Scale-factors at which the particles were last hit by AGN feedback. -1 if a particle has never been hit by feedback : [ - ] 
   Entropies_Gas:                           off        # Co-moving entropies per unit mass of the particles : U_M^-0.6667 U_L^4 U_t^-2  [ g^-0.6667 cm^4 s^-2 ]
