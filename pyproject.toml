@@ -24,6 +24,7 @@ make_CV = "swimba_pipeline.make_CV:main"
 cleanup = "swimba_pipeline.cleanup:main"
 swift2gadget = "swimba_pipeline.swift2gadget:main"
 convert_params = "swimba_pipeline.convert_params:main"
+make_CMD = "swimba_pipeline.make_CMD:main"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]

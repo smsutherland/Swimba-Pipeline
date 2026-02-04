@@ -116,6 +116,7 @@ def main():
                     False,
                 ),
                 ("PartType0/Temperatures", "PartType0/Temperatures", 1, False),
+                ("PartType0/ElectronNumberDensities", "PartType0/ElectronAbundance", 1, False),
                 ("PartType1/ParticleIDs", "PartType1/ParticleIDs", None, False),
                 (
                     "PartType1/Coordinates",
@@ -316,6 +317,8 @@ def main():
                 out[:, 1:] = temp[:, 1:]
 
                 hf_out[out_field] = out
+
+            hf_out["PartType0/NeutralHydrogenAbundance"] = hf_in["PartType0/SpeciesFractions"][:, 0]
 
 
 if __name__ == "__main__":
