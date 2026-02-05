@@ -1,9 +1,10 @@
 import argparse
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-import joblib
 import h5py
+import joblib
 import MAS_library as MASL
 import numpy as np
 from scipy.spatial import KDTree
@@ -72,12 +73,25 @@ def main():
     tracers: int = args.tracers
     splits: int = args.splits
 
+    target_dir.mkdir(parents=True, exist_ok=True)
+    if (target_dir / "mmap").exists():
+        shutil.rmtree(target_dir / "mmap")
+    (target_dir / "mmap").mkdir(exist_ok=True)
+
+    mmaped_snaps = []
+    for i, snap in enumerate(snaps):
+        if verbose:
+            print("loading", snap)
+        snap_data = load_snap(snap, parallelism)
+        fname = target_dir / "mmap" / str(i)
+        joblib.dump(snap_data, fname)
+        mmaped_snaps.append(joblib.load(fname, mmap_mode="r"))
+
     n_jobs = min(parallelism, 3 * splits * len(snaps))
     results: list[dict[str, np.ndarray]] = joblib.parallel.Parallel(
         n_jobs=n_jobs,
         verbose=int(verbose) * 10,
         return_as="generator",
-        pre_dispatch="1.5*n_jobs"
     )(
         joblib.parallel.delayed(make_images)(
             axis,
@@ -89,12 +103,11 @@ def main():
             r_divisions=r_divisions,
             tracers=tracers,
         )
-        for snap in map(lambda s: load_snap(s, parallelism), snaps)
+        for snap in mmaped_snaps
         for axis in range(3)
         for slice in range(splits)
     )  # type: ignore
 
-    target_dir.mkdir(parents=True, exist_ok=True)
     fields = [
         "Mgas",
         "Vgas",
@@ -129,6 +142,8 @@ def main():
 
         for field, path in paths.items():
             np.save(path, full_results[field])
+
+    shutil.rmtree(target_dir / "mmap")
 
 
 def make_images(
