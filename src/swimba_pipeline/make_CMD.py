@@ -1,5 +1,4 @@
 import argparse
-import itertools
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,11 +43,12 @@ class SnapshotData:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "snapshot",
-        help="A gadget-hdf5 format snapshot which will be imaged.",
+        "snapshots",
+        nargs="+",
+        help="A gadget-hdf5 format snapshot(s) which will be imaged.",
         type=Path,
     )
-    parser.add_argument("target", type=Path, nargs="?", default=Path.cwd())
+    parser.add_argument("--target", type=Path, default=Path.cwd())
     parser.add_argument(
         "-p",
         "--parallel",
@@ -63,7 +63,7 @@ def main():
     parser.add_argument("--splits", type=int, default=5)
 
     args = parser.parse_args()
-    snap: Path = args.snapshot
+    snaps: list[Path] = args.snapshots
     target_dir: Path = args.target
     parallelism: int = args.parallel
     verbose: bool = args.verbose
@@ -72,54 +72,63 @@ def main():
     tracers: int = args.tracers
     splits: int = args.splits
 
-    snapshot_data = load_snap(snap, parallelism)
-
-    box_size = snapshot_data.box_size
-    n_jobs = min(parallelism, 3 * splits)
+    n_jobs = min(parallelism, 3 * splits * len(snaps))
     results: list[dict[str, np.ndarray]] = joblib.parallel.Parallel(
-        n_jobs=n_jobs, verbose=int(verbose)
+        n_jobs=n_jobs,
+        verbose=int(verbose) * 10,
+        return_as="generator",
+        pre_dispatch="1.5*n_jobs"
     )(
         joblib.parallel.delayed(make_images)(
             axis,
-            box_size * slice / splits,
-            box_size * (slice + 1) / splits,
-            snapshot_data,
+            snap.box_size * slice / splits,
+            snap.box_size * (slice + 1) / splits,
+            snap,
             verbose=verbose,
             grid=grid,
             r_divisions=r_divisions,
             tracers=tracers,
         )
-        for axis, slice in itertools.product(range(3), range(splits))
+        for snap in map(lambda s: load_snap(s, parallelism), snaps)
+        for axis in range(3)
+        for slice in range(splits)
     )  # type: ignore
 
-    full_results = {}
-    for k in results[0].keys():
-        full_results[k] = np.stack([r[k] for r in results])
-
-    # This does not include the code name or the set name.
-    # Those should be added in post when combining images together.
-    suffix = f"z={snapshot_data.redshift:.2f}.npy"
-    paths = {
-        field: target_dir / f"Maps_{field}_{suffix}"
-        for field in [
-            "Mgas",
-            "Vgas",
-            "Mcdm",
-            "Vcdm",
-            "Mstar",
-            "Mtot",
-            "T",
-            "Z",
-            "P",
-            "HI",
-            "ne",
-            "MgFe",
-        ]
-    }
-
     target_dir.mkdir(parents=True, exist_ok=True)
-    for field, path in paths.items():
-        np.save(path, full_results[field])
+    fields = [
+        "Mgas",
+        "Vgas",
+        "Mcdm",
+        "Vcdm",
+        "Mstar",
+        "Mtot",
+        "T",
+        "Z",
+        "P",
+        "HI",
+        "ne",
+        "MgFe",
+    ]
+
+    for snap in snaps:
+        full_results = {
+            field: np.empty((3 * splits, grid, grid), dtype=np.float64)
+            for field in fields
+        }
+        z = 0
+        for i in range(3 * splits):
+            result = next(results)
+            for f in fields:
+                full_results[f][i] = result[f]
+            z = result["z"]
+
+        # This does not include the code name or the set name.
+        # Those should be added in post when combining images together.
+        suffix = f"z={z:.2f}.npy"
+        paths = {field: target_dir / f"Maps_{field}_{suffix}" for field in fields}
+
+        for field, path in paths.items():
+            np.save(path, full_results[field])
 
 
 def make_images(
@@ -302,6 +311,7 @@ def make_images(
     for k in ["Mgas", "Mcdm", "Mstar", "Mtot", "HI", "ne"]:
         results[k] /= area
 
+    results["z"] = data.redshift
     return results
 
 
