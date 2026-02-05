@@ -3,6 +3,9 @@ name = "swimba-pipeline"
 version = "0.1.0"
 description = "Tools for generating swimba runs"
 readme = "README.md"
+authors = [
+    { name = "Sagan Sutherland", email = "sagan@farthinghalearms.com" }
+]
 requires-python = ">=3.11"
 dependencies = [
     "camb>=1.6.4",
