@@ -50,7 +50,11 @@ def main():
     )
     parser.add_argument("target", type=Path, nargs="?", default=Path.cwd())
     parser.add_argument(
-        "-p", "--parallel", help="How many parallel tasks to run.", type=int, default=-1
+        "-p",
+        "--parallel",
+        help="How many parallel tasks to run.",
+        type=int,
+        default=joblib.cpu_count(),
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--grid", type=int, default=256)
@@ -71,10 +75,7 @@ def main():
     snapshot_data = load_snap(snap, parallelism)
 
     box_size = snapshot_data.box_size
-    if parallelism == -1:
-        n_jobs = min(joblib.cpu_count(), 3 * splits)
-    else:
-        n_jobs = min(parallelism, 3 * splits)
+    n_jobs = min(parallelism, 3 * splits)
     results: list[dict[str, np.ndarray]] = joblib.parallel.Parallel(
         n_jobs=n_jobs, verbose=int(verbose)
     )(
