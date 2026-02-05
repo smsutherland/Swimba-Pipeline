@@ -28,6 +28,7 @@ cleanup = "swimba_pipeline.cleanup:main"
 swift2gadget = "swimba_pipeline.swift2gadget:main"
 convert-params = "swimba_pipeline.convert_params:main"
 make-CMD = "swimba_pipeline.make_CMD:main"
+compute-Pk = "swimba_pipeline.compute_Pk:main"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]
