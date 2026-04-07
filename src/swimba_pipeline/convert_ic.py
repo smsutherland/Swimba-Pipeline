@@ -77,7 +77,6 @@ def copy_ic(source: str, destination: str):
 
         for gadget_name, gadget_type, swift_name, conversion in fields:
             data = pygadgetreader.readsnap(source, gadget_name, gadget_type)
-            print("Copying", swift_name)
             data *= conversion
             if gadget_name == "pos":
                 # Make sure coordinates are withing the size of the box

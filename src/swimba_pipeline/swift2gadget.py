@@ -13,21 +13,18 @@ def main():
         type=Path,
         help="Input snapshot filename.",
     )
-
     parser.add_argument(
         "output_file",
         type=Path,
         help="Output snapshot filename.",
     )
-
-    parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument("-v", "--verbose", action="store_true")
 
     args = parser.parse_args()
 
-    verbose: bool = args.verbose > 0
-
     out_snap: Path = args.output_file
     in_snap: Path = args.input_file
+    verbose: bool = args.verbose
 
     if verbose:
         print(f"Input file: {in_snap}\n" f"Output file: {out_snap}")
@@ -116,7 +113,8 @@ def main():
                     False,
                 ),
                 ("PartType0/Temperatures", "PartType0/Temperatures", 1, False),
-                ("PartType0/ElectronNumberDensities", "PartType0/ElectronAbundance", 1, False),
+                # Electron Number Densities are broken
+                # ("PartType0/ElectronNumberDensities", "PartType0/ElectronAbundance", 1, False),
                 ("PartType1/ParticleIDs", "PartType1/ParticleIDs", None, False),
                 (
                     "PartType1/Coordinates",
@@ -291,11 +289,14 @@ def main():
                 if (conv_factor != 1.0) and (out_unit is not None):
                     conv_factor /= out_unit
                     temp *= conv_factor
-
-                    ## Convert CGS to GADGET units
-                    hf_out[out_name] = temp  # / field[2]
-                else:
-                    hf_out[out_name] = temp
+                hf_out.create_dataset(
+                    out_name,
+                    temp.shape,
+                    dtype=temp.dtype,
+                    compression="gzip",
+                    shuffle=True,
+                    data=temp,
+                )
 
             # Do metallicities separately
             in_fields = [
@@ -310,15 +311,49 @@ def main():
             for in_field, out_field in zip(in_fields, out_fields):
                 temp = hf_in[in_field][:]
 
-                out = np.zeros((len(temp), 9))
+                out = np.zeros((len(temp), 11), dtype=temp.dtype)
 
-                out[:, 0] = np.sum(temp[:, 2:], axis=1)
+                out[:, 0] = np.sum(
+                    temp[:, 2:], axis=1
+                )  # Total metallicity, everything past helium
+                out[:, 1] = temp[:, 1]  # helium
+                out[:, 2] = temp[:, 2]  # carbon
+                out[:, 3] = temp[:, 3]  # nitrogen
+                out[:, 4] = temp[:, 4]  # oxygen
+                out[:, 5] = temp[:, 5]  # neon
+                out[:, 6] = temp[:, 6]  # magnesium
+                out[:, 7] = temp[:, 7]  # silicon
+                out[:, 8] = 0  # sulfur
+                out[:, 9] = 0  # calcium
+                out[:, 10] = temp[:, 8]  # iron
 
-                out[:, 1:] = temp[:, 1:]
+                hf_out.create_dataset(
+                    out_field,
+                    out.shape,
+                    dtype=out.dtype,
+                    compression="gzip",
+                    shuffle=True,
+                    data=out,
+                )
 
-                hf_out[out_field] = out
+            hf_out.create_dataset(
+                "PartType0/NeutralHydrogenAbundance",
+                hf_in["PartType0/SpeciesFractions"].shape[0],
+                dtype=hf_in["PartType0/SpeciesFractions"].dtype,
+                compression="gzip",
+                shuffle=True,
+                data=hf_in["PartType0/SpeciesFractions"][:, 0],
+            )
 
-            hf_out["PartType0/NeutralHydrogenAbundance"] = hf_in["PartType0/SpeciesFractions"][:, 0]
+            # Electron number densities are broken in swimba. Just fill it with zeros for now.
+            hf_out.create_dataset(
+                "PartType0/ElectronAbundance",
+                hf_in["PartType0/ElectronNumberDensities"].shape,
+                dtype=np.float64,
+                compression="gzip",
+                shuffle=True,
+                data=np.zeros(hf_in["PartType0/ElectronNumberDensities"].shape),
+            )
 
 
 if __name__ == "__main__":

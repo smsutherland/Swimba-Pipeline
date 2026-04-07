@@ -5,6 +5,7 @@ import h5py
 from pathlib import Path
 import Pk_library as PKL
 import MAS_library as MASL
+import pyfftw
 
 import joblib
 
@@ -34,30 +35,39 @@ def main():
     verbose: bool = args.verbose
     force_dm_only: bool = args.dm
 
+    pyfftw.config.NUM_THREADS = parallelism
+
     target.mkdir(parents=True, exist_ok=True)
 
-    for snapshot in snapshots:
-        with h5py.File(snapshot) as f:
-            z = f["Header"].attrs["Redshift"]
-            suffix = f"z={z:.2f}.txt"
+    pks = [([0, 1, 4, 5], "m")]
+    if not force_dm_only:
+        pks.extend(
+            [
+                ([0], "g"),
+                ([1], "c"),
+                ([4], "s"),
+                ([5], "bh"),
+            ]
+        )
 
-            dm_only: bool = force_dm_only or ("PartType0" not in f)
+    joblib.parallel.Parallel(n_jobs=parallelism)(
+        joblib.parallel.delayed(full_pk)(snap, ptype, name, target)
+        for (ptype, name) in pks
+        for snap in snapshots
+    )
 
-            pk = compute_Pk(f, [0, 1, 4, 5], 512, "CIC", parallelism, verbose)
-            np.savetxt(target / ("Pk_m_" + suffix), pk.T, delimiter="\t")
 
-            if not dm_only:
-                pk = compute_Pk(f, [0], 512, "CIC", parallelism, verbose)
-                np.savetxt(target / ("Pk_g_" + suffix), pk.T, delimiter="\t")
+def full_pk(snapshot, ptypes, name, target):
+    with h5py.File(snapshot) as f:
+        z = f["Header"].attrs["Redshift"]
+        suffix = f"z={z:.2f}.txt"
 
-                pk = compute_Pk(f, [1], 512, "CIC", parallelism, verbose)
-                np.savetxt(target / ("Pk_c_" + suffix), pk.T, delimiter="\t")
+        dm_only: bool = "PartType0" not in f
+        if dm_only and len(ptypes) == 1:
+            return
 
-                pk = compute_Pk(f, [4], 512, "CIC", parallelism, verbose)
-                np.savetxt(target / ("Pk_s_" + suffix), pk.T, delimiter="\t")
-
-                pk = compute_Pk(f, [5], 512, "CIC", parallelism, verbose)
-                np.savetxt(target / ("Pk_bh_" + suffix), pk.T, delimiter="\t")
+        pk = compute_Pk(f, ptypes, 512, "CIC", 1, False)
+        np.savetxt(target / (f"Pk_{name}_" + suffix), pk.T, delimiter="\t")
 
 
 def compute_Pk(
@@ -120,7 +130,7 @@ def compute_Pk(
     density /= np.mean(density)
     density -= 1.0
 
-    pk = PKL.Pk(density, box_size, 0, MAS, threads, verbose=verbose)
+    pk = PKL.Pk(density, box_size, axis=0, MAS=MAS, threads=threads, verbose=verbose)
     return np.array([pk.k3D, pk.Pk[:, 0]])
 
 

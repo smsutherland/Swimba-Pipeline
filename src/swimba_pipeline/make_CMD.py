@@ -1,13 +1,15 @@
 import argparse
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
 import h5py
 import joblib
-import MAS_library as MASL
+import MAS_library.MAS_library as MASL
 import numpy as np
 from scipy.spatial import KDTree
+from voxelize import Voxelize
 
 
 @dataclass(slots=True, kw_only=True)
@@ -62,6 +64,8 @@ def main():
     parser.add_argument("--r-divisions", type=int, default=20)
     parser.add_argument("--tracers", type=int, default=1000)
     parser.add_argument("--splits", type=int, default=5)
+    parser.add_argument("--2d", action="store_true", help="Only do 2d maps")
+    parser.add_argument("--3d", action="store_true", help="Only do 3d maps")
 
     args = parser.parse_args()
     snaps: list[Path] = args.snapshots
@@ -72,78 +76,127 @@ def main():
     r_divisions: int = args.r_divisions
     tracers: int = args.tracers
     splits: int = args.splits
+    run_2d: bool = getattr(args, "2d")
+    run_3d: bool = getattr(args, "3d")
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    if (target_dir / "mmap").exists():
-        shutil.rmtree(target_dir / "mmap")
-    (target_dir / "mmap").mkdir(exist_ok=True)
+    # if (target_dir / "mmap").exists():
+    #     shutil.rmtree(target_dir / "mmap")
+    # (target_dir / "mmap").mkdir(exist_ok=True)
 
-    mmaped_snaps = []
-    for i, snap in enumerate(snaps):
-        if verbose:
-            print("loading", snap)
-        snap_data = load_snap(snap, parallelism)
-        fname = target_dir / "mmap" / str(i)
-        joblib.dump(snap_data, fname)
-        mmaped_snaps.append(joblib.load(fname, mmap_mode="r"))
+    # mmaped_snaps = []
+    # for i, snap in enumerate(snaps):
+    #     if verbose:
+    #         print("loading", snap)
+    #     snap_data = load_snap(snap, parallelism)
+    #     fname = target_dir / "mmap" / str(i)
+    #     joblib.dump(snap_data, fname)
+    #     mmaped_snaps.append(joblib.load(fname, mmap_mode="r"))
+    snap_data = [load_snap(snap, parallelism) for snap in snaps]
 
-    n_jobs = min(parallelism, 3 * splits * len(snaps))
-    results: list[dict[str, np.ndarray]] = joblib.parallel.Parallel(
-        n_jobs=n_jobs,
-        verbose=int(verbose) * 10,
-        return_as="generator",
-    )(
-        joblib.parallel.delayed(make_images)(
-            axis,
-            snap.box_size * slice / splits,
-            snap.box_size * (slice + 1) / splits,
-            snap,
-            verbose=verbose,
-            grid=grid,
-            r_divisions=r_divisions,
-            tracers=tracers,
+    if run_2d or not run_3d:
+        n_jobs = min(parallelism, 3 * splits * len(snaps))
+        results: list[dict[str, np.ndarray]] = joblib.parallel.Parallel(
+            n_jobs=n_jobs,
+            verbose=int(verbose) * 10,
+            return_as="generator",
+        )(
+            joblib.parallel.delayed(make_images)(
+                axis,
+                snap.box_size * slice / splits,
+                snap.box_size * (slice + 1) / splits,
+                snap,
+                verbose=verbose,
+                grid=grid,
+                r_divisions=r_divisions,
+                tracers=tracers,
+            )
+            for snap in snap_data
+            for axis in range(3)
+            for slice in range(splits)
+        )  # type: ignore
+
+        fields = [
+            "Mgas",
+            "Vgas",
+            "Mcdm",
+            "Vcdm",
+            "Mstar",
+            "Mtot",
+            "T",
+            "Z",
+            "P",
+            "HI",
+            "ne",
+            "MgFe",
+        ]
+
+        for _ in range(len(snaps)):
+            full_results = {
+                field: np.empty((3 * splits, grid, grid), dtype=np.float64)
+                for field in fields
+            }
+            z = 0
+            for i in range(3 * splits):
+                result = next(results)
+                for f in fields:
+                    full_results[f][i] = result[f]
+                z = result["z"]
+
+            # This does not include the code name or the set name.
+            # Those should be added in post when combining files together.
+            suffix = f"z={z:.2f}.npy"
+            paths = {field: target_dir / f"Maps_{field}_{suffix}" for field in fields}
+
+            for field, path in paths.items():
+                np.save(path, full_results[field])
+
+    if run_3d or not run_2d:
+        n_jobs = min(parallelism, len(snaps))
+        n_threads = parallelism // n_jobs
+        os.environ["OMP_NUM_THREADS"] = str(n_threads)
+        results = joblib.parallel.Parallel(
+            n_jobs=n_jobs,
+            verbose=int(verbose) * 10,
+            return_as="generator",
+            prefer="processes",  # voxelize is not thread-safe!
+        )(
+            joblib.parallel.delayed(make_grids)(
+                snap,
+                verbose=verbose,
+                grid=grid,
+            )
+            for snap in snap_data
         )
-        for snap in mmaped_snaps
-        for axis in range(3)
-        for slice in range(splits)
-    )  # type: ignore
 
-    fields = [
-        "Mgas",
-        "Vgas",
-        "Mcdm",
-        "Vcdm",
-        "Mstar",
-        "Mtot",
-        "T",
-        "Z",
-        "P",
-        "HI",
-        "ne",
-        "MgFe",
-    ]
+        fields = [
+            "Mgas",
+            "Vgas",
+            "Mcdm",
+            "Vcdm",
+            "Mstar",
+            "Mtot",
+            "T",
+            "Z",
+            "P",
+            "HI",
+            "ne",
+            "MgFe",
+        ]
 
-    for snap in snaps:
-        full_results = {
-            field: np.empty((3 * splits, grid, grid), dtype=np.float64)
-            for field in fields
-        }
-        z = 0
-        for i in range(3 * splits):
+        for snap in snaps:
             result = next(results)
-            for f in fields:
-                full_results[f][i] = result[f]
             z = result["z"]
 
-        # This does not include the code name or the set name.
-        # Those should be added in post when combining images together.
-        suffix = f"z={z:.2f}.npy"
-        paths = {field: target_dir / f"Maps_{field}_{suffix}" for field in fields}
+            # This does not include the code name or the set name.
+            # Those should be added in post when combining files together.
+            suffix = f"{grid}_z={z:.2f}.npy"
+            paths = {field: target_dir / f"Grids_{field}_{suffix}" for field in fields}
 
-        for field, path in paths.items():
-            np.save(path, full_results[field])
+            for field, path in paths.items():
+                np.save(path, result[field])
 
-    shutil.rmtree(target_dir / "mmap")
+    # shutil.rmtree(target_dir / "mmap")
 
 
 def make_images(
@@ -302,7 +355,7 @@ def make_images(
 
     results["MgFe"] = results.pop("Mg") / results.pop("Fe")
 
-    for k in ["T", "Z", "P", "Vgas", "MgFe"]:
+    for k in ["T", "Z", "P", "Vgas"]:
         zero_mass = results["Mgas"] == 0.0
         np.divide(
             results[k],
@@ -363,7 +416,26 @@ def load_snap(snap: Path, parallelism: int) -> SnapshotData:
 
         gas_metallicity = f["PartType0/Metallicity"][:, 0] + 8e-10  # dimensionless
         gas_hI = f["PartType0/NeutralHydrogenAbundance"][:] * gas_mass  # Msun / h
-        gas_electron = f["PartType0/ElectronAbundance"][:]
+
+        m_proton = 1.6726e-27  # kg
+        Msun = 1.99e30  # kg
+        kpc = 3.0857e21  # cm
+
+        rho = f["/PartType0/Density"][:]  # (1e10 Msun/h)/(kpc/h)^3
+        gas_electron = f["/PartType0/ElectronAbundance"][:]
+        SFR = f["PartType0/StarFormationRate"][:]
+
+        # formula is 0.76*ne*rho/m_proton
+        # rho units are (Msun/h)/(kpc/h)^3;  1e19*2e30/(3.1e24)^3/3e-55
+        factor = 1e10 * Msun / kpc**3 / m_proton
+
+        indexes = np.where(SFR > 0.0)
+        gas_electron = factor * 0.76 * gas_electron * rho  # electrons*h^2/cm^3
+        gas_electron[indexes] = (
+            0.0  # put electron density to 0 for star-forming particles
+        )
+        gas_volume = gas_mass / rho / 1e19
+        gas_electron *= gas_volume
 
         gas_rho = f["PartType0/Density"][:]
         gas_u = f["PartType0/InternalEnergy"][:]
@@ -373,20 +445,21 @@ def load_snap(snap: Path, parallelism: int) -> SnapshotData:
         if "Temperatures" in f["PartType0"]:
             gas_temperature = f["PartType0/Temperatures"][:]
         else:
+            ne = f["PartType0/ElectronAbundance"][:]
             yhelium = 0.0789
-            T = (
+            gas_temperature = (
                 gas_u
                 * (1.0 + 4.0 * yhelium)
-                / (1.0 + yhelium + gas_electron)
+                / (1.0 + yhelium + ne)
                 * 1e10
                 * (2.0 / 3.0)
             )
             BOLTZMANN = 1.38065e-16  # erg/K - NIST 2010
             PROTONMASS = 1.67262178e-24  # gram  - NIST 2010
-            T *= PROTONMASS / BOLTZMANN
+            gas_temperature *= PROTONMASS / BOLTZMANN
 
         gas_magnesium = (f["PartType0/Metallicity"][:, 6] + 1e-10) * gas_mass
-        gas_iron = (f["PartType0/Metallicity"][:, 8] + 1e-10) * gas_mass
+        gas_iron = (f["PartType0/Metallicity"][:, 10] + 1e-10) * gas_mass
 
         box_size = f["Header"].attrs["BoxSize"] / 1000
 
@@ -421,6 +494,87 @@ def get_radii(positions, parallelism):
     positions %= 25
     tree = KDTree(positions, boxsize=25)
     return tree.query(positions, 32 + 1, workers=parallelism)[0][:, -1]
+
+
+def make_grids(data: SnapshotData, verbose: bool = False, grid: int = 256):
+    gas_fields = {
+        "T": data.gas_temperature * data.gas_mass,
+        "Z": data.gas_metallicity * data.gas_mass,
+        "Vgas": data.gas_velocity * data.gas_mass,
+        "P": data.gas_pressure * data.gas_mass,
+        "Mgas": data.gas_mass,
+        "HI": data.gas_neutral_H,
+        "ne": data.gas_electron_density,
+        "Mg": data.gas_magnesium,
+        "Fe": data.gas_iron,
+    }
+    dm_fields = {
+        "Mcdm": data.dm_mass,
+        "Vcdm": data.dm_velocity * data.dm_mass,
+    }
+
+    result = {}
+    voxel_volume = (data.box_size / grid) ** 3
+
+    field_names = []
+    field_densities = []
+    for name, field in gas_fields.items():
+        field_density = field / (4.0 * np.pi * data.gas_radius**3 / 3.0)
+        field_names.append(name)
+        field_densities.append(field_density)
+    densities_npy = np.stack(field_densities, axis=-1)
+    with Voxelize(use_gpu=False) as v:
+        output_grids = v(
+            data.box_size, data.gas_position, data.gas_radius, densities_npy, grid
+        )
+    output_grids *= voxel_volume
+    for i, name in enumerate(field_names):
+        result[name] = output_grids[..., i]
+
+    field_names = []
+    field_densities = []
+    for name, field in dm_fields.items():
+        field_density = field / (4.0 * np.pi * data.dm_radius**3 / 3.0)
+        field_names.append(name)
+        field_densities.append(field_density)
+    densities_npy = np.stack(field_densities, axis=-1)
+    with Voxelize(use_gpu=False) as v:
+        output_grids = v(
+            data.box_size, data.dm_position, data.dm_radius, densities_npy, grid
+        )
+    output_grids *= voxel_volume
+    for i, name in enumerate(field_names):
+        result[name] = output_grids[..., i]
+
+    m_star = np.zeros((grid, grid, grid), dtype=np.float32)
+    star_position = np.copy(data.star_position)
+    star_mass = np.copy(data.star_mass)
+    MASL.MA(
+        # data.star_position,
+        star_position,
+        m_star,
+        data.box_size,
+        "NGP",
+        # W=data.star_mass,
+        W=star_mass,
+        verbose=verbose,
+    )
+    result["Mstar"] = m_star
+
+    m_bh = np.zeros((grid, grid, grid), dtype=np.float32)
+    MASL.MA(
+        data.bh_position,
+        m_bh,
+        data.box_size,
+        "NGP",
+        W=data.bh_mass,
+        verbose=verbose,
+    )
+    result["Mtot"] = result["Mgas"] + result["Mcdm"] + m_star + m_bh
+    result["z"] = data.redshift
+    result["MgFe"] = result.pop("Mg") / result.pop("Fe")
+
+    return result
 
 
 if __name__ == "__main__":
