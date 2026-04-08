@@ -59,6 +59,7 @@ def make_mesh(snap: Path, grid: int, sigma: int, target: Path, ptype: int = 1):
                 coordinates.shape[0], f["Header"].attrs["MassTable"][ptype] * 1e10
             )
         boxsize: float = f["Header"].attrs["BoxSize"]
+        coordinates %= boxsize
     mesh = Meshoid(
         coordinates,
         m=masses,
