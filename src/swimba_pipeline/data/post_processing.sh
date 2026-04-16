@@ -538,6 +538,7 @@ function run-sublink() {
 	rm -- "${SUBLINK_OUTPUT}"/tree.*.hdf5
 	rm -- "${SUBLINK_OUTPUT}"/tree_extended.*.hdf5
 	rm -r -- "${SUBLINK_OUTPUT}/subfind"
+	rm -- "${SUBFIND_OUTPUT}"/snap-groupordered-storeids_*.hdf5
 }
 
 function run-rockstar() {
@@ -656,11 +657,20 @@ function run-cmd() {
 		make-CMD "$(get-gadget-snapshot ${ALL_SNAPS[-1]})" --parallel ${cpus} --target "${CMD_OUTPUT}/2D_maps" --grid 256 --2d
 	fi
 	if [ "$(ls "${CMD_OUTPUT}/3D_grids" | wc -l)" -lt 36 ]; then
-        IFS=$'\n' # Split the snapshot names into different arguments
-		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do get-gadget-snapshot "${n}"; echo; done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 128 --3d
-		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do get-gadget-snapshot "${n}"; echo; done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 256 --3d
-		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do get-gadget-snapshot "${n}"; echo; done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 512 --3d
-        unset IFS
+		IFS=$'\n' # Split the snapshot names into different arguments
+		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do
+			get-gadget-snapshot "${n}"
+			echo
+		done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 128 --3d
+		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do
+			get-gadget-snapshot "${n}"
+			echo
+		done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 256 --3d
+		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do
+			get-gadget-snapshot "${n}"
+			echo
+		done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 512 --3d
+		unset IFS
 	fi
 }
 
