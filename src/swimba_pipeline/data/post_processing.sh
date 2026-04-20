@@ -255,9 +255,10 @@ function main() {
 	fi
 
 	# If the user does not specify how much parallelism to use, try to determine it from the SLURM variables
-	# If the slurm variables do not exist (or are null), defaults to 16 cores.
+	# If the slurm variables do not exist (or are null), defaults to however many cores are available.
+    # Note that nproc respects SLURM restrictions on cpus.
 	if [ -z "${cpus+x}" ]; then
-		cpus=$((${SLURM_NTASKS:-1} * ${SLURM_CPUS_PER_TASK:-16}))
+        cpus=$(nproc)
 	fi
 
 	if [ "${CONVERT_SNAPSHOTS}" = "yes" ]; then

@@ -51,7 +51,7 @@ def main():
     with open(disbatch_script, "w") as f:
         f.write("#DISBATCH PREFIX cd \n")
         f.write(
-            f"#DISBATCH SUFFIX ; (bash post_processing.sh -p {parallel}{force_flag}) &{'>' if force else '>>'} post_processing.log\n"
+            f"#DISBATCH SUFFIX ; (bash post_processing.sh {force_flag}) &{'>' if force else '>>'} post_processing.log\n"
         )
 
         paths = set()
