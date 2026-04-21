@@ -256,9 +256,9 @@ function main() {
 
 	# If the user does not specify how much parallelism to use, try to determine it from the SLURM variables
 	# If the slurm variables do not exist (or are null), defaults to however many cores are available.
-    # Note that nproc respects SLURM restrictions on cpus.
+	# Note that nproc respects SLURM restrictions on cpus.
 	if [ -z "${cpus+x}" ]; then
-        cpus=$(nproc)
+		cpus=$(nproc)
 	fi
 
 	if [ "${CONVERT_SNAPSHOTS}" = "yes" ]; then
@@ -627,7 +627,14 @@ function run-consistent_tree() {
 	# This is also why all the paths here and in running rockstar are resolved to absolute paths.
 	# Otherwise it'll try to take the relative path from the consistent trees directory, which is wrong.
 	pushd "${CONSISTENT_TREE_ROOT}"
-	perl "${CONSISTENT_TREE_ROOT}/do_merger_tree.pl" "${output_dir}/outputs/merger_tree.cfg"
+	while
+		perl "${CONSISTENT_TREE_ROOT}/do_merger_tree.pl" "${output_dir}/outputs/merger_tree.cfg" 2>&1 | tee "${output_dir}/mergers.log"
+		grep "Error: too few halos at scale factor" "${output_dir}/mergers.log"
+	do
+		# Remove the first scale factor and try again.
+		tail -n+2 -- "${output_dir}/outputs/scales.txt" >"${output_dir}/outputs/scales2.txt"
+		mv -- "${output_dir}/outputs/scales2.txt" "${output_dir}/outputs/scales.txt"
+	done
 	perl "${CONSISTENT_TREE_ROOT}/halo_trees_to_catalog.pl" "${output_dir}/outputs/merger_tree.cfg"
 	popd
 	if [ ! -e "${output_dir}/trees/tree_0_0_0.dat" ]; then
