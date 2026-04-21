@@ -64,7 +64,7 @@
 # Note that many aspects of this pipeline expect snapshot names to all be of the form `some/path/to/snapshotFileName_<snapNumber>.hdf5`
 # If this is not the case, you may have to alter things further in the code to make it work.
 function get-gadget-snapshot() {
-	printf "/scratch/${SIM_ROOT}/snap_%03d.hdf5" $1
+	printf "/scratch/${SIM_ROOT}/snap_%03d.hdf5" "$1"
 }
 
 function get-gadget-ic() {
@@ -81,7 +81,7 @@ function convert-snaps() {
 	# For now though this is effectively a for loop going through every snapshot.
 	# It's just weird because I'm using xargs to parallelize the process.
 	# Also, swift2gadget is included in the Swimba Pipeline.
-	seq 0 90 | xargs -P$cpus -I{} bash -c '
+	seq 0 90 | xargs -P"$cpus" -I{} bash -c '
         SOURCE_SNAP=$(printf "snaps/snapshot_%04d.hdf5" {})
         DEST_SNAP=$(printf "/scratch/${SIM_ROOT}/snap_%03d.hdf5" {})
 
@@ -146,7 +146,7 @@ function get-softening() {
 
 # ALL_SNAPS should be an array containing every snapshot number we're outputting.
 # I've set it up like this to allow for non-sequential snapshot numbers.
-ALL_SNAPS=($(seq 0 90))
+mapfile -t ALL_SNAPS < <(seq 0 90)
 
 # The _OUTPUT variables are for determining where the ouptuts for the various steps should go.
 # Note that some steps depend on previous steps, so changing one output can break later steps.
@@ -223,7 +223,7 @@ function main() {
 	done
 
 	IFS=$'\n'
-	ALL_SNAPS=($(sort -g <<<"${ALL_SNAPS[*]}"))
+    mapfile -t ALL_SNAPS < <(sort -g <<<"${ALL_SNAPS[*]}")
 	unset IFS
 	pwd=$(pwd)
 	pwd_without_leading=${pwd#/}
@@ -239,9 +239,9 @@ function main() {
 			sleep 1
 		done
 		echo 0
-		if [ "${CLEAN_GADGET_SNAPS}" = "yes" -a "${CONVERT_SNAPSHOTS}" = "yes" ]; then
-			for n in ${ALL_SNAPS[@]}; do
-				rm -f -- "$(get-gadget-snapshot $n)" &
+		if [ "${CLEAN_GADGET_SNAPS}" = "yes" ] && [ "${CONVERT_SNAPSHOTS}" = "yes" ]; then
+			for n in "${ALL_SNAPS[@]}"; do
+				rm -f -- "$(get-gadget-snapshot "$n")" &
 			done
 			rm -f -- "$(get-gadget-ic)" &
 		fi
@@ -265,9 +265,9 @@ function main() {
 		convert-snaps
 	fi
 
-	for i in ${ALL_SNAPS[@]}; do
-		if [ ! -e "$(get-gadget-snapshot $i)" ]; then
-			echo "Snapshot $(get-gadget-snapshot $i) does not exist!"
+	for i in "${ALL_SNAPS[@]}"; do
+		if [ ! -e "$(get-gadget-snapshot "$i")" ]; then
+			echo "Snapshot $(get-gadget-snapshot "$i") does not exist!"
 			missing=
 		fi
 	done
@@ -300,21 +300,21 @@ function run-subfind() {
 	module load gsl/2.7
 	module load hwloc/2.7.1
 
-	read Om Ol Ob h box_size < <(
+	read -r Om Ol Ob h box_size < <(
 		python <<-EOF
 			import h5py
 			import numpy as np
-			f = h5py.File('$(get-gadget-snapshot ${ALL_SNAPS[0]})')
+			f = h5py.File('$(get-gadget-snapshot "${ALL_SNAPS[0]}")')
 			h = f['Header'].attrs
 			M = 0.0
 			Mb = 0.0
-			for p in ($(printf "%d, " ${DM_PTYPES[@]})):
+			for p in ($(printf "%d, " "${DM_PTYPES[@]}")):
 			    if "PartType" + str(p) not in f: continue
 			    if "Masses" in f["PartType" + str(p)]:
 			        M += np.sum(f["PartType" + str(p)]["Masses"][:])
 			    else:
 			        M += h["MassTable"][p] * h["NumPart_Total"][p]
-			for p in ($(printf "%d, " ${BARYON_PTYPES[@]})):
+			for p in ($(printf "%d, " "${BARYON_PTYPES[@]}")):
 			    if "PartType" + str(p) not in f: continue
 			    if "Masses" in f["PartType" + str(p)]:
 			        Mb += np.sum(f["PartType" + str(p)]["Masses"][:])
@@ -468,25 +468,25 @@ function run-subfind() {
 		SelfShieldingFile                                 ${AREPO_ROOT}/data/SelfShielding_Rahmati12
 	EOF
 
-	for i in ${ALL_SNAPS[@]}; do
+	for i in "${ALL_SNAPS[@]}"; do
 		# I've seen situations where subfind can spuriously fail, so we end up missing one random catalog.
 		# I check each catalog individually rather than checking for the final one so that if one is randomly missing, it can still be recovered without restarting everything.
-		if [ -e $(printf "${SUBFIND_OUTPUT}/fof_subhalo_tab_%03d.hdf5" $i) ]; then
+		if [ -e "$(printf "${SUBFIND_OUTPUT}/fof_subhalo_tab_%03d.hdf5" "$i")" ]; then
 			continue
 		fi
-		ln -sf $(realpath "$(get-gadget-snapshot $i)" --relative-to="${SUBFIND_OUTPUT}") $(printf "${SUBFIND_OUTPUT}/snap_%03d.hdf5" $i)
+		ln -sf "$(realpath "$(get-gadget-snapshot "$i")" --relative-to="${SUBFIND_OUTPUT}")" "$(printf "${SUBFIND_OUTPUT}/snap_%03d.hdf5" "$i")"
 		# Make sure Arepo is compiled to output the group-ordered snapshots.
 		# Sublink expects these to exist.
 		pushd "${SUBFIND_OUTPUT}"
 		unset SLURM_JOBID
-		mpirun --bind-to none -N ${cpus} "${AREPO_ROOT}/Arepo" ./arepo_subfind_param.txt 3 $i 2>&1 | tee "subfind_${i}.log"
+		mpirun --bind-to none -N "$cpus" "${AREPO_ROOT}/Arepo" ./arepo_subfind_param.txt 3 "$i" 2>&1 | tee "subfind_${i}.log"
 		popd
 		# srun --ntasks=${cpus} --cpus-per-task=1 --cpu_bind=cores --kill-on-bad-exit=1 $AREPO_ROOT/Arepo ./arepo_subfind_param.txt 3 $i 2>&1 | tee "subfind_${i}.log"
 	done
 }
 
 function run-sublink() {
-	if [ -e "${SUBLINK_OUTPUT}/tree.hdf5" -a -e "${SUBLINK_OUTPUT}/tree_extended.hdf5" -a -e "${SUBLINK_OUTPUT}/offsets/" ]; then
+	if [ -e "${SUBLINK_OUTPUT}/tree.hdf5" ] && [ -e "${SUBLINK_OUTPUT}/tree_extended.hdf5" ] && [ -e "${SUBLINK_OUTPUT}/offsets/" ]; then
 		# All sublink files exist. Skipping sublink
 		return
 	fi
@@ -508,9 +508,9 @@ function run-sublink() {
 
 	mkdir -p "${SUBLINK_OUTPUT}/subfind"
 	n=0
-	for i in ${ALL_SNAPS[@]}; do
-		ln -sfr $(printf "${SUBFIND_OUTPUT}/fof_subhalo_tab_%03d.hdf5" $i) $(printf "${SUBLINK_OUTPUT}/subfind/fof_subhalo_tab_%03d.hdf5" $n)
-		ln -sfr $(printf "${SUBFIND_OUTPUT}/snap-groupordered-storeids_%03d.hdf5" $i) $(printf "${SUBLINK_OUTPUT}/subfind/snap_%03d.hdf5" $n)
+	for i in "${ALL_SNAPS[@]}"; do
+		ln -sfr "$(printf "${SUBFIND_OUTPUT}/fof_subhalo_tab_%03d.hdf5" "$i")" "$(printf "${SUBLINK_OUTPUT}/subfind/fof_subhalo_tab_%03d.hdf5" $n)"
+		ln -sfr "$(printf "${SUBFIND_OUTPUT}/snap-groupordered-storeids_%03d.hdf5" "$i")" "$(printf "${SUBLINK_OUTPUT}/subfind/snap_%03d.hdf5" $n)"
 		: $((n++))
 	done
 	((n--))
@@ -543,7 +543,7 @@ function run-sublink() {
 }
 
 function run-rockstar() {
-	if [ -e ./rockstar/out_90.list -o -e "${ROCKSTAR_OUTPUT}/trees/tree_0_0_0.dat" ]; then
+	if [ -e ./rockstar/out_90.list ] || [ -e "${ROCKSTAR_OUTPUT}/trees/tree_0_0_0.dat" ]; then
 		return
 	fi
 
@@ -552,9 +552,9 @@ function run-rockstar() {
 	module load hdf5/1.10.8
 	mkdir -p "${ROCKSTAR_OUTPUT}"
 	# This could probably be done a bit cleaner with a quick python line, but whatever.
-	box_size=$(($(h5dump --attribute=/Header/BoxSize --noindex "$(get-gadget-snapshot ${ALL_SNAPS[0]})" | sed -n "6p") / 1000))
+	box_size=$(($(h5dump --attribute=/Header/BoxSize --noindex "$(get-gadget-snapshot "${ALL_SNAPS[0]}")" | sed -n "6p") / 1000))
 
-	printf "%03d\n" ${ALL_SNAPS[@]} >"${ROCKSTAR_OUTPUT}/snaps"
+	printf "%03d\n" "${ALL_SNAPS[@]}" >"${ROCKSTAR_OUTPUT}/snaps"
 
 	# TODO: How much does setting the FORCE_RES to the softening length change things?
 	# This doesn't matter for most sets, but since SWIMBA SB28 varies the softenings, we should be robust to that variation.
@@ -576,8 +576,8 @@ function run-rockstar() {
 
 		BOX_SIZE = ${box_size} # Mpc / h
 
-		INBASE = "$(dirname $(get-gadget-snapshot ${ALL_SNAPS[-1]}))"
-		FILENAME = "$(basename $(get-gadget-snapshot ${ALL_SNAPS[-1]} | sed 's/\(.*\)_.*/\1/'))_<snap>.hdf5"
+		INBASE = "$(dirname "$(get-gadget-snapshot "${ALL_SNAPS[-1]}")")"
+        FILENAME = "$(basename "$(get-gadget-snapshot "${ALL_SNAPS[-1]}" | sed 's/\(.*\)_.*/\1/')")_<snap>.hdf5"
 
 		SNAPSHOT_NAMES = "${ROCKSTAR_OUTPUT}/snaps
 
@@ -661,36 +661,39 @@ function run-cmd() {
 	mkdir -p "${CMD_OUTPUT}/3D_grids"
 	# Currently I've got 12 fields I'm maping for the CMD. Should that number change, it should change here as well.
 	# I've got it set to greater than or equal to hopeful make this not a super big deal, even though it's a bit more error prone.
-	if [ $(ls "${CMD_OUTPUT}/2D_maps" | wc -l) -lt 12 ]; then
-		make-CMD "$(get-gadget-snapshot ${ALL_SNAPS[-1]})" --parallel ${cpus} --target "${CMD_OUTPUT}/2D_maps" --grid 256 --2d
+    files_2d=("${CMD_OUTPUT}"/2D_maps/*)
+	if [ ${#files_2d[@]} -lt 12 ]; then
+		make-CMD "$(get-gadget-snapshot "${ALL_SNAPS[-1]}")" --parallel "$cpus" --target "${CMD_OUTPUT}/2D_maps" --grid 256 --2d
 	fi
-	if [ "$(ls "${CMD_OUTPUT}/3D_grids" | wc -l)" -lt 36 ]; then
+    files_3d=("${CMD_OUTPUT}"/3D_grids/*)
+	if [ ${#files_3d[@]} -lt 36 ]; then
 		IFS=$'\n' # Split the snapshot names into different arguments
-		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do
+		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
-		done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 128 --3d
-		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do
+		done)" --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 128 --3d
+		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
-		done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 256 --3d
-		make-CMD $(for n in ${CMD_SNAPSHOTS[@]}; do
+		done)" --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 256 --3d
+		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
-		done) --parallel ${cpus} --target "${CMD_OUTPUT}/3D_grids" --grid 512 --3d
+		done)" --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 512 --3d
 		unset IFS
 	fi
 }
 
 function run-Pk() {
 	mkdir -p "${PK_OUTPUT}"
-	if [ $(ls "${PK_OUTPUT}" | wc -l) -ge 460 ]; then
+    pk_files=("${PK_OUTPUT}"/*)
+	if [ ${#pk_files[@]} -ge 460 ]; then
 		return
 	fi
-	compute-Pk "$(get-gadget-snapshot ${ALL_SNAPS[-1]} | sed 's/\(.*\)_.*/\1/')"_*.hdf5 --parallel ${cpus} --target "${PK_OUTPUT}"
+	compute-Pk "$(get-gadget-snapshot "${ALL_SNAPS[-1]}" | sed 's/\(.*\)_.*/\1/')"_*.hdf5 --parallel "${cpus}" --target "${PK_OUTPUT}"
 	ic="$(get-gadget-ic)"
 	if [ -e "$ic" ]; then
-		compute-Pk $ic --parallel ${cpus} --target "${PK_OUTPUT}"
+		compute-Pk "$ic" --parallel "$cpus" --target "${PK_OUTPUT}"
 	fi
 }
 
@@ -700,12 +703,12 @@ function run-disperse {
 	sigma=2
 	snap=${ALL_SNAPS[-1]}
 	if [ "$cut" -ge 1000 ]; then
-		cut_str=$(printf "%.0e" $cut)
+		cut_str=$(printf "%.0e" "$cut")
 	else
-		cut_str=$(printf "%d" $cut)
+		cut_str=$(printf "%d" "$cut")
 	fi
-	sigma_str=$(printf "%02d" $sigma)
-	snap_str=$(printf "%03d" $snap)
+	sigma_str=$(printf "%02d" "$sigma")
+	snap_str=$(printf "%03d" "$snap")
 
 	if [ -e "${DISPERSE_OUTPUT}/massgrid-disperse_G-${grid}_S-${sigma_str}_c${cut_str}-output_file_${snap_str}.hdf5" ]; then
 		return
@@ -720,19 +723,19 @@ function run-disperse {
 	module load flexiblas/3.4.2
 	module load cfitsio/4.5.0
 
-	read Om Ol Ok h w box_size < <(python -c "import h5py; f=h5py.File('$(get-gadget-snapshot $snap)'); h=f['Header'].attrs; print(h['Omega0'], h['OmegaLambda'], 1 - h['Omega0'] - h['OmegaLambda'], h['HubbleParam'], '-1')")
+	read -r Om Ol Ok h w box_size < <(python -c "import h5py; f=h5py.File('$(get-gadget-snapshot "$snap")'); h=f['Header'].attrs; print(h['Omega0'], h['OmegaLambda'], 1 - h['Omega0'] - h['OmegaLambda'], h['HubbleParam'], '-1')")
 
 	# make-mesh is included as part of my Swimba Pipeline (I should probably separate a lot of these out since the scope has gone way beyond Swimba, but whatever.
-	make-mesh "$(get-gadget-snapshot $snap)" --parallel $cpus --target "${DISPERSE_OUTPUT}" --grid $grid --sigma $sigma
-	"${DISPERSE_ROOT}/fieldconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}.fits" -cosmo $Om $Ol $Ok $h $w -to NDfield -info -outName masscubegrid-G-${grid}_S-${sigma_str}_${snap_str} -outDir "${DISPERSE_OUTPUT}"
+	make-mesh "$(get-gadget-snapshot "$snap")" --parallel "$cpus" --target "${DISPERSE_OUTPUT}" --grid "$grid" --sigma "$sigma"
+	"${DISPERSE_ROOT}/fieldconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}.fits" -cosmo "$Om" "$Ol" "$Ok" "$h" "$w" -to NDfield -info -outName "masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}" -outDir "${DISPERSE_OUTPUT}"
 	if [ -e "${DISPERSE_OUTPUT}/masscubegrid-G-256_S-${sigma_str}_${snap_str}.MSC" ]; then
-		"${DISPERSE_ROOT}/mse" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}.ND" -cut $cut -upSkl -manifolds -forceLoops -periodicity 111 -nthreads $cpus -outName masscubegrid-G-${grid}_S-${sigma_str}_${snap_str} -outDir "${DISPERSE_OUTPUT}" -loadMSC "${DISPERSE_OUTPUT}/masscubegrid-G-256_S-02_${snap_str}.MSC"
+		"${DISPERSE_ROOT}/mse" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}.ND" -cut $cut -upSkl -manifolds -forceLoops -periodicity 111 -nthreads "$cpus" -outName "masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}" -outDir "${DISPERSE_OUTPUT}" -loadMSC "${DISPERSE_OUTPUT}/masscubegrid-G-256_S-02_${snap_str}.MSC"
 	else
-		"${DISPERSE_ROOT}/mse" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}.ND" -cut $cut -upSkl -manifolds -forceLoops -periodicity 111 -nthreads $cpus -outName masscubegrid-G-${grid}_S-${sigma_str}_${snap_str} -outDir "${DISPERSE_OUTPUT}"
+		"${DISPERSE_ROOT}/mse" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}.ND" -cut $cut -upSkl -manifolds -forceLoops -periodicity 111 -nthreads "$cpus" -outName "masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}" -outDir "${DISPERSE_OUTPUT}"
 	fi
-	"${DISPERSE_ROOT}/skelconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}.up.NDskl" -cosmo $Om $Ol $Ok $h $w -breakdown -smooth 1 -to segs_ascii -outName masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str} -outDir "${DISPERSE_OUTPUT}"
-	"${DISPERSE_ROOT}/skelconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}.up.NDskl" -cosmo $Om $Ol $Ok $h $w -breakdown -smooth 1 -to crits_ascii -outName masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str} -outDir "${DISPERSE_OUTPUT}"
-	"${DISPERSE_ROOT}/skelconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}.up.NDskl" -cosmo $Om $Ol $Ok $h $w -breakdown -smooth 1 -to NDskl_ascii -outName masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str} -outDir "${DISPERSE_OUTPUT}"
+	"${DISPERSE_ROOT}/skelconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}.up.NDskl" -cosmo "$Om" "$Ol" "$Ok" "$h" "$w" -breakdown -smooth 1 -to segs_ascii -outName "masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}" -outDir "${DISPERSE_OUTPUT}"
+	"${DISPERSE_ROOT}/skelconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}.up.NDskl" -cosmo "$Om" "$Ol" "$Ok" "$h" "$w" -breakdown -smooth 1 -to crits_ascii -outName "masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}" -outDir "${DISPERSE_OUTPUT}"
+	"${DISPERSE_ROOT}/skelconv" "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}.up.NDskl" -cosmo "$Om" "$Ol" "$Ok" "$h" "$w" -breakdown -smooth 1 -to NDskl_ascii -outName "masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}" -outDir "${DISPERSE_OUTPUT}"
 	if [ "${WITH_COSMOASTROSEED}" = "yes" ]; then
 		# disperse2hdf5 is part of Swimba Pipeline
 		disperse2hdf5 "${DISPERSE_OUTPUT}/masscubegrid-G-${grid}_S-${sigma_str}_${snap_str}_c${cut_str}.BRK.S001.a.NDskl" "${SUBFIND_OUTPUT}/fof_subhalo_tab_${snap_str}.hdf5" ../CosmoAstroSeed*.txt --grid $grid --target "${DISPERSE_OUTPUT}"
