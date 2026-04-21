@@ -223,7 +223,7 @@ function main() {
 	done
 
 	IFS=$'\n'
-    mapfile -t ALL_SNAPS < <(sort -g <<<"${ALL_SNAPS[*]}")
+	mapfile -t ALL_SNAPS < <(sort -g <<<"${ALL_SNAPS[*]}")
 	unset IFS
 	pwd=$(pwd)
 	pwd_without_leading=${pwd#/}
@@ -577,7 +577,7 @@ function run-rockstar() {
 		BOX_SIZE = ${box_size} # Mpc / h
 
 		INBASE = "$(dirname "$(get-gadget-snapshot "${ALL_SNAPS[-1]}")")"
-        FILENAME = "$(basename "$(get-gadget-snapshot "${ALL_SNAPS[-1]}" | sed 's/\(.*\)_.*/\1/')")_<snap>.hdf5"
+		        FILENAME = "$(basename "$(get-gadget-snapshot "${ALL_SNAPS[-1]}" | sed 's/\(.*\)_.*/\1/')")_<snap>.hdf5"
 
 		SNAPSHOT_NAMES = "${ROCKSTAR_OUTPUT}/snaps
 
@@ -661,11 +661,11 @@ function run-cmd() {
 	mkdir -p "${CMD_OUTPUT}/3D_grids"
 	# Currently I've got 12 fields I'm maping for the CMD. Should that number change, it should change here as well.
 	# I've got it set to greater than or equal to hopeful make this not a super big deal, even though it's a bit more error prone.
-    files_2d=("${CMD_OUTPUT}"/2D_maps/*)
+	files_2d=("${CMD_OUTPUT}"/2D_maps/*)
 	if [ ${#files_2d[@]} -lt 12 ]; then
 		make-CMD "$(get-gadget-snapshot "${ALL_SNAPS[-1]}")" --parallel "$cpus" --target "${CMD_OUTPUT}/2D_maps" --grid 256 --2d
 	fi
-    files_3d=("${CMD_OUTPUT}"/3D_grids/*)
+	files_3d=("${CMD_OUTPUT}"/3D_grids/*)
 	if [ ${#files_3d[@]} -lt 36 ]; then
 		IFS=$'\n' # Split the snapshot names into different arguments
 		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
@@ -686,7 +686,7 @@ function run-cmd() {
 
 function run-Pk() {
 	mkdir -p "${PK_OUTPUT}"
-    pk_files=("${PK_OUTPUT}"/*)
+	pk_files=("${PK_OUTPUT}"/*)
 	if [ ${#pk_files[@]} -ge 460 ]; then
 		return
 	fi
