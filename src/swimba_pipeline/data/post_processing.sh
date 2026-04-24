@@ -666,7 +666,7 @@ function run-cmd() {
 		make-CMD "$(get-gadget-snapshot "${ALL_SNAPS[-1]}")" --parallel "$cpus" --target "${CMD_OUTPUT}/2D_maps" --grid 256 --2d
 	fi
 	files_3d=("${CMD_OUTPUT}"/3D_grids/*)
-	if [ ${#files_3d[@]} -lt 36 ]; then
+	if [ ${#files_3d[@]} -lt 180 ]; then
 		IFS=$'\n' # Split the snapshot names into different arguments
 		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
