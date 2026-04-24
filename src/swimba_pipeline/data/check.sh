@@ -10,7 +10,7 @@ ensure_exists() {
 
 ensure_count() {
 	if [ $(ls $1 | wc -l) -lt "$2" ]; then
-		echo missing "$1"
+		echo missing "$1" got $(ls $1 | wc -l) instead of "$2"
 		result=1
 	fi
 }
