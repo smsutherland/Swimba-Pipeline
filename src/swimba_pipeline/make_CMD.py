@@ -80,23 +80,11 @@ def main():
     run_3d: bool = getattr(args, "3d")
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    # if (target_dir / "mmap").exists():
-    #     shutil.rmtree(target_dir / "mmap")
-    # (target_dir / "mmap").mkdir(exist_ok=True)
-
-    # mmaped_snaps = []
-    # for i, snap in enumerate(snaps):
-    #     if verbose:
-    #         print("loading", snap)
-    #     snap_data = load_snap(snap, parallelism)
-    #     fname = target_dir / "mmap" / str(i)
-    #     joblib.dump(snap_data, fname)
-    #     mmaped_snaps.append(joblib.load(fname, mmap_mode="r"))
     snap_data = [load_snap(snap, parallelism) for snap in snaps]
 
     if run_2d or not run_3d:
         n_jobs = min(parallelism, 3 * splits * len(snaps))
-        results: list[dict[str, np.ndarray]] = joblib.parallel.Parallel(
+        results = joblib.parallel.Parallel(
             n_jobs=n_jobs,
             verbose=int(verbose) * 10,
             return_as="generator",
@@ -114,7 +102,7 @@ def main():
             for snap in snap_data
             for axis in range(3)
             for slice in range(splits)
-        )  # type: ignore
+        )
 
         fields = [
             "Mgas",
@@ -152,16 +140,9 @@ def main():
                 np.save(path, full_results[field])
 
     if run_3d or not run_2d:
-        n_jobs = min(parallelism, len(snaps))
-        n_threads = parallelism // n_jobs
-        os.environ["OMP_NUM_THREADS"] = str(n_threads)
-        results = joblib.parallel.Parallel(
-            n_jobs=n_jobs,
-            verbose=int(verbose) * 10,
-            return_as="generator",
-            prefer="processes",  # voxelize is not thread-safe!
-        )(
-            joblib.parallel.delayed(make_grids)(
+        os.environ["OMP_NUM_THREADS"] = str(parallelism)
+        results = (
+            make_grids(
                 snap,
                 verbose=verbose,
                 grid=grid,
