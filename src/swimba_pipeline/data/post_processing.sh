@@ -663,20 +663,20 @@ function run-cmd() {
 	# I've got it set to greater than or equal to hopeful make this not a super big deal, even though it's a bit more error prone.
 	files_2d=("${CMD_OUTPUT}"/2D_maps/*)
 	if [ ${#files_2d[@]} -lt 12 ]; then
-		make-CMD "$(get-gadget-snapshot "${ALL_SNAPS[-1]}")" --parallel "$cpus" --target "${CMD_OUTPUT}/2D_maps" --grid 256 --2d
+		OMP_NUM_THREADS="$cpus" make-CMD "$(get-gadget-snapshot "${ALL_SNAPS[-1]}")" --parallel "$cpus" --target "${CMD_OUTPUT}/2D_maps" --grid 256 --2d
 	fi
 	files_3d=("${CMD_OUTPUT}"/3D_grids/*)
 	if [ ${#files_3d[@]} -lt 180 ]; then
 		IFS=$'\n' # Split the snapshot names into different arguments
-		make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
+		OMP_NUM_THREADS="$cpus" make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
 		done) --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 128 --3d
-		make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
+		OMP_NUM_THREADS="$cpus" make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
 		done) --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 256 --3d
-		make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
+		OMP_NUM_THREADS="$cpus" make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
 		done) --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 512 --3d
