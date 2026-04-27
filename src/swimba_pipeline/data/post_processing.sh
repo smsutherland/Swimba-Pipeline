@@ -668,18 +668,18 @@ function run-cmd() {
 	files_3d=("${CMD_OUTPUT}"/3D_grids/*)
 	if [ ${#files_3d[@]} -lt 180 ]; then
 		IFS=$'\n' # Split the snapshot names into different arguments
-		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
+		make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
-		done)" --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 128 --3d
-		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
+		done) --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 128 --3d
+		make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
-		done)" --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 256 --3d
-		make-CMD "$(for n in "${CMD_SNAPSHOTS[@]}"; do
+		done) --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 256 --3d
+		make-CMD $(for n in "${CMD_SNAPSHOTS[@]}"; do
 			get-gadget-snapshot "${n}"
 			echo
-		done)" --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 512 --3d
+		done) --parallel "$cpus" --target "${CMD_OUTPUT}/3D_grids" --grid 512 --3d
 		unset IFS
 	fi
 }
