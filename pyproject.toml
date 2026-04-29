@@ -17,7 +17,6 @@ dependencies = [
     "meshoid>=1.48",
     "numba>=0.63",
     "Pylians==0.12",
-    "voxelize",
 ]
 
 [project.scripts]
@@ -30,12 +29,6 @@ make-CV = "swimba_pipeline.make_CV:main"
 cleanup = "swimba_pipeline.cleanup:main"
 swift2gadget = "swimba_pipeline.swift2gadget:main"
 convert-params = "swimba_pipeline.convert_params:main"
-make-CMD = "swimba_pipeline.make_CMD:main"
-compute-Pk = "swimba_pipeline.compute_Pk:main"
-make-mesh = "swimba_pipeline.make_mesh:main"
-disperse2hdf5 = "swimba_pipeline.disperse2hdf5:main"
-postprocess = "swimba_pipeline.postprocess:main"
-gadget2to3 = "swimba_pipeline.gadget2to3:main"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]
@@ -44,7 +37,6 @@ build-backend = "uv_build"
 [tool.uv.sources]
 pygadgetreader = { git = "https://github.com/dnarayanan/pygadgetreader" }
 Pylians = { path = "/mnt/home/ssutherland/codes/Pylians3/" }
-voxelize = { path = "/mnt/home/ssutherland/codes/voxelize/" }
 
 [tool.uv.extra-build-dependencies]
 Pylians = [{ requirement = "numpy", match-runtime = true }]
